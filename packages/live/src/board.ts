@@ -12,6 +12,17 @@ export type LiveState = (typeof liveStates)[number];
 
 const liveId = z.string().regex(liveIdPattern);
 
+export const liveQuestionIdPattern = /^q[a-z0-9]{6}$/;
+
+export const boardQuestionSchema = z.strictObject({
+  id: z.string().regex(liveQuestionIdPattern),
+  text: z.string().min(1).max(2000),
+  options: z.array(z.string().min(1).max(200)).min(2).max(4),
+  recommended: z.string().min(1).max(200),
+});
+
+export type BoardQuestion = z.infer<typeof boardQuestionSchema>;
+
 export const liveBriefKinds = ["question", "finished", "blocked"] as const;
 
 export const boardBriefSchema = z.strictObject({
@@ -48,6 +59,7 @@ export const boardSessionSchema = z.strictObject({
   branch: z.string().nullable(),
   updatedAt: z.string(),
   message: z.string(),
+  question: boardQuestionSchema.optional(),
   brief: boardBriefSchema.optional(),
 });
 

@@ -61,6 +61,9 @@ export function fakeLive(records: readonly LiveRecord[]): LiveSessions {
     unpair: async () => refused,
     pairs: async () => [],
     peerSend: async () => refused,
+    question: async () => null,
+    ask: async () => refused,
+    answer: async () => refused,
   };
 }
 

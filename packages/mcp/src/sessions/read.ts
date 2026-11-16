@@ -3,12 +3,15 @@ import { cloneDetailLines, cloneListLine, type CloneNode } from "@shadowclone/cl
 import {
   liveBoardDetail,
   liveBoardPair,
+  liveBoardQuestion,
   liveBoardSession,
   liveDetailLines,
   liveIdPattern,
   liveListLines,
   livePairLines,
+  liveQuestionLines,
   type LiveBrief,
+  type LiveQuestion,
   type LiveRecord,
   type LiveSessions,
 } from "@shadowclone/live";
@@ -30,10 +33,38 @@ async function readLive(options: {
   readonly id: string;
 }): Promise<SessionsAnswer> {
   const record = (await options.live?.get(options.id)) ?? null;
+  const question = (await options.live?.question(options.id)) ?? null;
 
   return record === null
     ? { value: `No live session ${options.id} exists on this machine, or live sessions are off.` }
-    : { value: [dataLabel, ...liveDetailLines(record)].join("\n"), board: liveBoardDetail(record) };
+    : {
+        value: [
+          dataLabel,
+          ...liveDetailLines(record),
+          ...(question === null ? [] : liveQuestionLines(question)),
+        ].join("\n"),
+        board: liveBoardDetail(record),
+      };
+}
+
+type LiveRow = {
+  readonly record: LiveRecord;
+  readonly question: LiveQuestion | null;
+  readonly brief: LiveBrief | null;
+};
+
+function rowLines(row: LiveRow): readonly string[] {
+  return [
+    ...liveListLines({ record: row.record, currentBrief: row.brief }),
+    ...(row.question === null ? [] : liveQuestionLines(row.question).map((line) => `  ${line}`)),
+  ];
+}
+
+function boardRow(row: LiveRow) {
+  return {
+    ...liveBoardSession({ record: row.record, brief: row.brief }),
+    ...(row.question === null ? {} : { question: liveBoardQuestion(row.question) }),
+  };
 }
 
 type LiveSection = Pick<BoardList, "live" | "sessions" | "pairs" | "ended"> & {
@@ -45,19 +76,23 @@ async function liveSection(live?: LiveSessions): Promise<LiveSection> {
   const pairs = (await live?.pairs()) ?? [];
   const enabled = (await live?.enabled()) ?? false;
   const briefs = (await live?.currentBriefs(records)) ?? new Map<string, LiveBrief>();
-  const briefOf = (record: LiveRecord) => briefs.get(record.id) ?? null;
+  const rows = await Promise.all(
+    records.map(async (record) => ({
+      record,
+      question: (await live?.question(record.id)) ?? null,
+      brief: briefs.get(record.id) ?? null,
+    })),
+  );
 
   return {
     lines: [
-      ...(records.length === 0 ? [] : ["Live sessions:"]),
+      ...(rows.length === 0 ? [] : ["Live sessions:"]),
       ...(briefs.size === 0 ? [] : [briefLabel]),
-      ...records.flatMap((record) => liveListLines({ record, currentBrief: briefOf(record) })),
+      ...rows.flatMap(rowLines),
       ...(pairs.length === 0 ? [] : ["Pairs:", ...livePairLines(pairs)]),
     ],
     live: enabled ? "on" : "off",
-    sessions: records
-      .filter((record) => record.state !== "ended")
-      .map((record) => liveBoardSession({ record, brief: briefOf(record) })),
+    sessions: rows.filter((row) => row.record.state !== "ended").map(boardRow),
     pairs: pairs.map(liveBoardPair),
     ended: records.filter((record) => record.state === "ended").length,
   };

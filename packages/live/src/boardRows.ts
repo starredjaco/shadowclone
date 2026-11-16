@@ -1,7 +1,8 @@
-import type { BoardBrief, BoardDetail, BoardPair, BoardSession } from "./board";
+import type { BoardBrief, BoardDetail, BoardPair, BoardQuestion, BoardSession } from "./board";
 import type { LiveBrief } from "./brief";
 import type { LivePairView } from "./pairing";
 import { pairNoteLimit } from "./pairs";
+import type { LiveQuestion } from "./questionStore";
 import type { LiveRecord } from "./record";
 import { firstLine } from "./text";
 
@@ -31,6 +32,15 @@ export function liveBoardSession(options: {
     updatedAt: record.updatedAt,
     message: firstLine(record.attention ?? record.summary),
     ...(brief === null ? {} : { brief: boardBrief(brief) }),
+  };
+}
+
+export function liveBoardQuestion(question: LiveQuestion): BoardQuestion {
+  return {
+    id: question.id,
+    text: question.text,
+    options: question.options,
+    recommended: question.recommended,
   };
 }
 
